@@ -155,14 +155,14 @@ namespace LearnOpenTK
 
             GL.BindVertexArray(_vaoLamp);
 
-            _lampShader.Use();
+            //_lampShader.Use();
 
-            Matrix4 lampMatrix = Matrix4.CreateScale(0.2f);
-            lampMatrix = lampMatrix * Matrix4.CreateTranslation(_lightPos);
+            //Matrix4 lampMatrix = Matrix4.CreateScale(0.2f);
+            //lampMatrix = lampMatrix * Matrix4.CreateTranslation(_lightPos);
 
-            _lampShader.SetMatrix4("model", lampMatrix);
-            _lampShader.SetMatrix4("view", _camera.GetViewMatrix());
-            _lampShader.SetMatrix4("projection", _camera.GetProjectionMatrix());
+            //_lampShader.SetMatrix4("model", lampMatrix);
+            //_lampShader.SetMatrix4("view", _camera.GetViewMatrix());
+            //_lampShader.SetMatrix4("projection", _camera.GetProjectionMatrix());
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
 
