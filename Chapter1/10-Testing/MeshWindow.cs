@@ -12,8 +12,8 @@ namespace DepthMapToMesh
 {   
     public class MeshWindow : GameWindow
     {
-        private readonly List<Vector3> _points;
-        private readonly List<int> _indices;
+        private float[] _vertices;
+        private int[] _indices;
         private int _vbo, _vao, _ebo;
 
         private Matrix4 _model = Matrix4.Identity;
@@ -26,12 +26,16 @@ namespace DepthMapToMesh
         private bool _firstMove = true;
         private Vector2 _lastPos;
 
+        private Texture _texture;
+        private Shader _shader;
+        private double _time;
+
         // Đường dẫn đến ảnh depth map             
 
-        public MeshWindow(List<Vector3> points, List<int> indices)
+        public MeshWindow(float[] vertices, int[] indices)
             : base(GameWindowSettings.Default, NativeWindowSettings.Default)
         {
-            _points = points;
+            _vertices = vertices;
             _indices = indices;
             Size = new Vector2i(800, 600);
             Title = "3D Mesh from Depth Map";
@@ -42,30 +46,39 @@ namespace DepthMapToMesh
             base.OnLoad();
 
             // Convert points to float[]
-            List<float> vertices = new List<float>();
-            foreach (var point in _points)
-            {
-                vertices.Add(point.X);
-                vertices.Add(point.Y);
-                vertices.Add(point.Z);
-            }
+            
 
             // Tạo VAO, VBO và EBO
-            _vao = GL.GenVertexArray();
-            _vbo = GL.GenBuffer();
-            _ebo = GL.GenBuffer();
-
+            _vao = GL.GenVertexArray();        
             GL.BindVertexArray(_vao);
 
+            _vbo = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Count * sizeof(float), vertices.ToArray(), BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
 
+            _ebo = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Count * sizeof(int), _indices.ToArray(), BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
+
+            _shader = new Shader("Shaders/shader.vert", "Shaders/shader.frag");
+            _shader.Use();
+
+            //var vertexLocation = _shader.GetAttribLocation("aPosition");
+            //GL.EnableVertexAttribArray(vertexLocation);
+            //GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+
+            //var texCoordLocation = _shader.GetAttribLocation("aTexCoord");
+            //GL.EnableVertexAttribArray(texCoordLocation);
+            //GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
             // Vị trí điểm 3D
             GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
             GL.EnableVertexAttribArray(0);
+
+            _texture = Texture.LoadFromFile("Resources/container.png");
+            _texture.Use(TextureUnit.Texture0);
+
+            _shader.SetInt("texture0", 0);
 
             //GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
             GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -82,11 +95,21 @@ namespace DepthMapToMesh
         {
             base.OnRenderFrame(args);
 
+            _time += 4.0 * args.Time;
+
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             // Sử dụng VAO và vẽ
             GL.BindVertexArray(_vao);
-            GL.DrawElements(PrimitiveType.TriangleStrip, _indices.Count, DrawElementsType.UnsignedInt, 0);
+
+            _shader.Use();
+
+            var model = Matrix4.Identity * Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(_time));
+            _shader.SetMatrix4("model", model);
+            _shader.SetMatrix4("view", _camera.GetViewMatrix());
+            _shader.SetMatrix4("projection", _camera.GetProjectionMatrix());
+
+            GL.DrawElements(PrimitiveType.TriangleStrip, _indices.Length, DrawElementsType.UnsignedInt, 0);
 
             SwapBuffers();
         }
