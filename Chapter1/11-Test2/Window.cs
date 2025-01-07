@@ -45,7 +45,7 @@ public class Window : GameWindow
 
         // Load depth map and generate point cloud
         string depthImagePath = "Resources/depth_map.jpg"; // Replace with your depth map path
-        GeneratePointCloudFromDepthImage(depthImagePath);
+        GenerateVerticesAndIndicesFromDepthImage(depthImagePath);
 
         //GeneratePointCloudAndMeshFromDepthMap(depthImagePath);
 
@@ -83,7 +83,7 @@ public class Window : GameWindow
         _camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
     }
 
-    private void GeneratePointCloudFromDepthImage(string imagePath)
+    private void GenerateVerticesAndIndicesFromDepthImage(string imagePath)
     {
         Mat depthImage = Cv2.ImRead(imagePath, ImreadModes.Grayscale);
 
