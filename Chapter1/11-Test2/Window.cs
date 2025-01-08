@@ -10,6 +10,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using LearnOpenTK.Common;
+using LearnOpenTK.Helpers;
 
 public class Window : GameWindow
 {
@@ -49,11 +50,21 @@ public class Window : GameWindow
 
         //GeneratePointCloudAndMeshFromDepthMap(depthImagePath);
 
+        // Set to Wireframe Mode
+        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+
+        
+
         // Create VAO and VBO
         _vao = GL.GenVertexArray();
         GL.BindVertexArray(_vao);
 
         _vertices = vertices.ToArray();
+
+        if (!string.IsNullOrEmpty(depthImagePath) && _vertices.Length > 0 && _indices.Length > 0)
+        {
+            //RenderHelper.ExportToObjUsingAssimp(depthImagePath, _vertices, _indices);
+        }
 
         _vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
@@ -69,10 +80,11 @@ public class Window : GameWindow
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
         GL.EnableVertexAttribArray(0);
 
+        //_texture = Texture.LoadFromFile("Resources/image.jpg");
         _texture = Texture.LoadFromFile("Resources/container.png");
         _texture.Use(TextureUnit.Texture0);
 
-        _shader.SetInt("texture0", 0);
+        //_shader.SetInt("texture0", 0);
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         GL.Enable(EnableCap.DepthTest);
 
@@ -81,6 +93,8 @@ public class Window : GameWindow
         _projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45f), Size.X / (float)Size.Y, 0.1f, 100f);
 
         _camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
+
+        //Generate to 3d physical file
     }
 
     private void GenerateVerticesAndIndicesFromDepthImage(string imagePath)
@@ -351,4 +365,6 @@ public class Window : GameWindow
             _camera.Pitch -= deltaY * sensitivity;
         }
     }
+
+
 }
