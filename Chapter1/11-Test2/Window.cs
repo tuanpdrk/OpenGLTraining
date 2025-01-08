@@ -22,6 +22,9 @@ public class Window : GameWindow
     private Vector2 _lastMousePos;
     private bool _isDragging = false;
 
+    private float[] _simplifiedVertices;
+    private int[] _simplifiedIndices;
+
     private Matrix4 _model = Matrix4.Identity;
     private Matrix4 _view;
     private Matrix4 _projection;
@@ -32,8 +35,13 @@ public class Window : GameWindow
     private Vector2 _lastPos;
 
     private Texture _texture;
+
+    private Shader _lightingShader;
     private Shader _shader;
+
     private double _time;
+
+    private readonly Vector3 _lightPos = new Vector3(1.2f, 1.0f, 2.0f);
 
     public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
         : base(gameWindowSettings, nativeWindowSettings)
@@ -47,24 +55,32 @@ public class Window : GameWindow
         // Load depth map and generate point cloud
         string depthImagePath = "Resources/depth_map.jpg"; // Replace with your depth map path
         GenerateVerticesAndIndicesFromDepthImage(depthImagePath);
-
-        //GeneratePointCloudAndMeshFromDepthMap(depthImagePath);
-
-        // Set to Wireframe Mode
-        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
-
-        
-
+       
         // Create VAO and VBO
         _vao = GL.GenVertexArray();
         GL.BindVertexArray(_vao);
 
         _vertices = vertices.ToArray();
 
+        //Simplify vertices and indices
+        Simplify(_vertices, _indices);
+
         if (!string.IsNullOrEmpty(depthImagePath) && _vertices.Length > 0 && _indices.Length > 0)
         {
             //RenderHelper.ExportToObjUsingAssimp(depthImagePath, _vertices, _indices);
         }
+
+        if (_simplifiedVertices.Length > 0) { 
+            _vertices = _simplifiedVertices;
+        }
+
+        if (_simplifiedIndices.Length > 0)
+        {
+            _indices = _simplifiedIndices;
+        }
+
+        // Set to Wireframe Mode
+        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Point);
 
         _vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
@@ -83,8 +99,9 @@ public class Window : GameWindow
         //_texture = Texture.LoadFromFile("Resources/image.jpg");
         _texture = Texture.LoadFromFile("Resources/container.png");
         _texture.Use(TextureUnit.Texture0);
+        _shader.SetInt("texture0", 0);
 
-        //_shader.SetInt("texture0", 0);
+        //Set background color
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         GL.Enable(EnableCap.DepthTest);
 
@@ -92,9 +109,7 @@ public class Window : GameWindow
         _view = Matrix4.LookAt(new Vector3(0, 0, 2), Vector3.Zero, Vector3.UnitY);
         _projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45f), Size.X / (float)Size.Y, 0.1f, 100f);
 
-        _camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
-
-        //Generate to 3d physical file
+        _camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);       
     }
 
     private void GenerateVerticesAndIndicesFromDepthImage(string imagePath)
@@ -236,6 +251,103 @@ public class Window : GameWindow
         return !float.IsNaN(point.X) && !float.IsNaN(point.Y) && !float.IsNaN(point.Z);
     }
 
+    private void DrawSimplifiedWireframe(float[] vertices, int[] indices)
+    {
+        HashSet<(int, int)> uniqueEdges = new HashSet<(int, int)>();
+
+        // Extract unique edges
+        for (int i = 0; i < indices.Length; i += 3)
+        {
+            int v1 = indices[i];
+            int v2 = indices[i + 1];
+            int v3 = indices[i + 2];
+
+            AddEdge(uniqueEdges, v1, v2);
+            AddEdge(uniqueEdges, v2, v3);
+            AddEdge(uniqueEdges, v3, v1);
+        }
+
+        // Create a list of unique edge vertices
+        List<float> edgeVertices = new List<float>();
+        foreach (var edge in uniqueEdges)
+        {
+            edgeVertices.Add(vertices[edge.Item1 * 3 + 0]);
+            edgeVertices.Add(vertices[edge.Item1 * 3 + 1]);
+            edgeVertices.Add(vertices[edge.Item1 * 3 + 2]);
+
+            edgeVertices.Add(vertices[edge.Item2 * 3 + 0]);
+            edgeVertices.Add(vertices[edge.Item2 * 3 + 1]);
+            edgeVertices.Add(vertices[edge.Item2 * 3 + 2]);
+        }
+
+        // Upload edgeVertices to a buffer and draw as lines
+        GL.BindVertexArray(_vao);
+        GL.BufferData(BufferTarget.ArrayBuffer, edgeVertices.Count * sizeof(float), edgeVertices.ToArray(), BufferUsageHint.StaticDraw);
+        GL.DrawArrays(PrimitiveType.Lines, 0, edgeVertices.Count / 3);
+    }
+
+    void AddEdge(HashSet<(int, int)> edges, int v1, int v2)
+    {
+        if (v1 > v2) (v1, v2) = (v2, v1); // Ensure consistent ordering
+        edges.Add((v1, v2));
+    }
+
+    public void Simplify(float[] vertices, int[] indices)
+    {
+        // Step 1: Create a mapping of unique vertices
+        Dictionary<string, int> vertexMap = new Dictionary<string, int>();
+        List<float> uniqueVertices = new List<float>();
+        List<int> newIndices = new List<int>();
+
+        int currentIndex = 0;
+
+        for (int i = 0; i < indices.Length; i++)
+        {
+            // Get the index and corresponding vertex
+            int vertexIndex = indices[i];
+            int vertexStart = vertexIndex * 3;
+
+            string vertexKey = $"{vertices[vertexStart]:F6},{vertices[vertexStart + 1]:F6},{vertices[vertexStart + 2]:F6}";
+
+            // Check if the vertex is already in the map
+            if (!vertexMap.TryGetValue(vertexKey, out int newIndex))
+            {
+                // Add the unique vertex to the list
+                uniqueVertices.Add(vertices[vertexStart]);
+                uniqueVertices.Add(vertices[vertexStart + 1]);
+                uniqueVertices.Add(vertices[vertexStart + 2]);
+
+                // Map the old index to the new index
+                newIndex = currentIndex++;
+                vertexMap[vertexKey] = newIndex;
+            }
+
+            // Add the new index to the new indices list
+            newIndices.Add(newIndex);
+        }
+
+        // Step 2: Remove degenerate triangles (optional)
+        List<int> validIndices = new List<int>();
+        for (int i = 0; i < newIndices.Count; i += 3)
+        {
+            int i1 = newIndices[i];
+            int i2 = newIndices[i + 1];
+            int i3 = newIndices[i + 2];
+
+            // Check for degenerate triangles (e.g., overlapping vertices)
+            if (i1 != i2 && i2 != i3 && i3 != i1)
+            {
+                validIndices.Add(i1);
+                validIndices.Add(i2);
+                validIndices.Add(i3);
+            }
+        }
+
+        // Return the simplified vertices and indices
+        _simplifiedVertices = uniqueVertices.ToArray();
+        _simplifiedIndices = validIndices.ToArray();
+    }
+
     protected override void OnMouseDown(MouseButtonEventArgs e)
     {
         if (e.Button == MouseButton.Left)
@@ -282,9 +394,11 @@ public class Window : GameWindow
 
         _shader.Use();
 
-        _shader.SetMatrix4("model", Matrix4.Identity);
+        var model = Matrix4.Identity * Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(_time));
+        _shader.SetMatrix4("model", model);
         _shader.SetMatrix4("view", _camera.GetViewMatrix());
         _shader.SetMatrix4("projection", _camera.GetProjectionMatrix());
+                   
 
         GL.DrawElements(PrimitiveType.TriangleStrip, _indices.Length, DrawElementsType.UnsignedInt, 0);
 

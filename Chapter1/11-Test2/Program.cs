@@ -15,7 +15,7 @@ namespace LearnOpenTK
             var nativeWindowSettings = new NativeWindowSettings()
             {
                 ClientSize = new Vector2i(800, 600),
-                Title = "Test2",
+                Title = "Test render 3D",
                 // This is needed to run on macos
                 Flags = ContextFlags.ForwardCompatible,
             };

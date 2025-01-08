@@ -51,7 +51,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10-Testing", "Chapter1\10-T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "7-Test3D", "Chapter2\7-Test3D\7-Test3D.csproj", "{710373B3-3F2E-4410-BEFF-BD361870D7CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "11-Test2", "Chapter1\11-Test2\11-Test2.csproj", "{4CC120ED-A5C3-4C80-B028-71842BA81BB3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "11-Test", "Chapter1\11-Test2\11-Test.csproj", "{4CC120ED-A5C3-4C80-B028-71842BA81BB3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
